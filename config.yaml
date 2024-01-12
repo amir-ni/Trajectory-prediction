@@ -1,0 +1,30 @@
+rome7-6-4-1024:
+  test_ratio: 0.2
+  validation_ratio: 0.1
+  delimiter: " "
+  min_input_length: 5
+  max_input_length: 20
+  test_input_length: 10
+  test_prediction_length: 5
+  batch_size: 128
+  device: cuda
+  max_epochs: 4
+  block_size: 32
+  learning_rate: 5.e-3
+  weight_decay: 5.e-1
+  beta1: 0.9
+  beta2: 0.95
+  grad_clip: 1.0
+  decay_lr: True
+  warmup_iters: 200
+  lr_decay_iters: 20000
+  min_lr: 5.e-7
+  seed: 42
+  data_dir: /local/data1/users/anadiri/data
+  dataset: rome7
+  n_layer: 4
+  n_head: 4
+  n_embd: 512
+  bias: False
+  dropout: 0.1
+  model_checkpoint_directory: /local/data1/users/anadiri/models/
