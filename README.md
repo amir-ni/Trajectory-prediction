@@ -1,5 +1,7 @@
 # TrajLearn: A Novel Model for Trajectory Prediction
 
+<img src="./img/overview.png" alt="drawing" width="200"/>
+
 ## Abstract
 
 Trajectory prediction is a crucial task with broad applications in autonomous vehicles, robotics, human motion analysis, and more. It involves estimating the future path of an entity based on its current state and historical data. Despite the advent of deep learning techniques for trajectory prediction, these models often struggle with complex spatial dependencies due to the dynamic nature of environments. Our work introduces _TrajLearn_, a groundbreaking model that predicts future trajectories using generative models of higher-order mobility flow representations (hexagons). Incorporating a beam search variant, TrajLearn not only respects spatial constraints for path continuity but also significantly outperforms existing methods, marking a substantial advancement in trajectory prediction.
@@ -7,7 +9,6 @@ Trajectory prediction is a crucial task with broad applications in autonomous ve
 ## Project Structure
 
 This project includes several key files necessary for training and evaluating the TrajLearn model:
-![Overview](./img/overview.png)
 
 - `TrajectoryBatchDataset.py`: Handles dataset loading and preprocessing.
 - `config.yaml`: Contains configuration parameters for model training and evaluation.
