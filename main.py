@@ -12,7 +12,6 @@ from model import GPTConfig, GPT
 from test import test
 from trainer import Trainer
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '5'
 torch.cuda.cudnn_enabled = False
 torch.backends.cudnn.deterministic = True
 

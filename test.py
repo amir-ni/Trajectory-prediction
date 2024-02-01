@@ -23,7 +23,7 @@ def calculate_bleu(predictions, targets):
 
 
 @torch.no_grad()
-def test(model, dataset, config, logger, beam_size=1):
+def test(model, dataset, config, logger, beam_size=5):
     model.eval()
     device = config["device"]
     device_type = 'cuda' if 'cuda' in device else 'cpu'
