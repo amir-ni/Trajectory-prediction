@@ -33,7 +33,7 @@ rome7-12-8-512:
   device: cuda
   max_epochs: 4
   ...
-  model_checkpoint_directory: /local/data1/users/anadiri/models/
+  model_checkpoint_directory: /local/traj-pred/models/
 ```
 
 ## Getting Started

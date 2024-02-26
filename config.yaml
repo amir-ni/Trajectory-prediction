@@ -20,11 +20,11 @@ rome7-12-8-512:
   lr_decay_iters: 20000
   min_lr: 5.e-7
   seed: 42
-  data_dir: /local/data1/users/anadiri/data
+  data_dir: /local/traj-pred/data
   dataset: rome7
   n_layer: 12
   n_head: 8
   n_embd: 512
   bias: False
   dropout: 0.1
-  model_checkpoint_directory: /local/data1/users/anadiri/models/
+  model_checkpoint_directory: /local/traj-pred/models/
