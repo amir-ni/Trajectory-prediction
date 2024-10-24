@@ -1,0 +1,12 @@
+name: trajlearn
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.8
+  - numpy=1.26.4
+  - pandas=2.2.2
+  - h3=3.7.7
+  - torch=2.3.0
+  - pip:
+    - transformers=4.44.1
