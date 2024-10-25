@@ -5,9 +5,7 @@ import argparse
 import numpy as np
 import pandas as pd
 
-# Main processing function
 def process_datasets(input_dir, output_dir, datasets_to_process):
-    # Define the datasets we want to handle (geolife, porto, rome)
     datasets = {
         "geolife": [
             ("geolife-7", os.path.join(input_dir, "ho_geolife", "ho_geolife_res7.csv"), "date"),
@@ -26,7 +24,6 @@ def process_datasets(input_dir, output_dir, datasets_to_process):
         ]
     }
 
-    # Process the selected datasets
     for dataset_key in datasets_to_process:
         if dataset_key in datasets:
             for dataset in datasets[dataset_key]:
@@ -76,23 +73,17 @@ def process_datasets(input_dir, output_dir, datasets_to_process):
                 print(f"Processing completed for {dataset_name}.")
 
 if __name__ == '__main__':
-    # Argument parser for input and output directories and datasets
     parser = argparse.ArgumentParser(description='Trajectory Prediction Learning for geolife, porto, and rome datasets')
     
-    # Optional input_dir argument (defaults to "./data" in the current directory)
     parser.add_argument('--input_dir', type=str, default="./data", 
                         help='Path to input dataset files (default: ./data)')
     
-    # Optional output_dir argument (defaults to "./data" in the current directory)
     parser.add_argument('--output_dir', type=str, default="./data", 
                         help='Path to output directory (default: ./data)')
     
-    # Required argument to specify which datasets to process
     parser.add_argument('--datasets', type=str, nargs='+', choices=['geolife', 'porto', 'rome'], required=True,
                         help='Specify which datasets to process (choose from geolife, porto, rome)')
 
-    # Parse the arguments
     args = parser.parse_args()
 
-    # Run the processing function with the provided arguments
     process_datasets(args.input_dir, args.output_dir, args.datasets)

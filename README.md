@@ -4,7 +4,9 @@
 
 *TrajLearn* is a transformer-based model designed to predict future trajectories using higher-order mobility flow representations (hexagonal grids). This model integrates a beam search variant to enhance spatial continuity, providing superior accuracy compared to existing methods. It is a powerful solution for trajectory prediction tasks in autonomous vehicles, robotics, and human motion analysis.
 
-<img src="https://raw.githubusercontent.com/amir-ni/Trajectory-prediction/refs/heads/main/img/overview.png" alt="drawing" width="75%">
+<p align="center">
+  <img src="img/architecture.png" alt="TrajLearn model architecture" height="400">
+</p>
 
 ## Repository Structure
 
