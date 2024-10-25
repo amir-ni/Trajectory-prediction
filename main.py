@@ -27,6 +27,7 @@ def get_logger(log_directory, phase="train"):
     console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(formatter)
 
+    logger.log_directory = log_directory
     logfile = os.path.join(
         log_directory, phase + ".log")
     file_handler = logging.FileHandler(logfile, mode='a')
