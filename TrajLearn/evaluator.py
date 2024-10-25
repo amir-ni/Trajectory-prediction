@@ -19,7 +19,7 @@ def calculate_bleu(predictions: torch.Tensor, targets: torch.Tensor) -> float:
 
 
 @torch.no_grad()
-def test(model, dataset, config, logger, beam_width=5, top_k=[1, 3, 5], continuity=True, store_predictions=True):
+def evaluate_model(model, dataset, config, logger, beam_width=5, top_k=[1, 3, 5], continuity=True, store_predictions=True):
     model.eval()
     device = config["device"]
     device_type = 'cuda' if 'cuda' in device else 'cpu'
@@ -130,4 +130,4 @@ def test(model, dataset, config, logger, beam_width=5, top_k=[1, 3, 5], continui
     results.append(f"Samples: {total_samples}")
     logger.info(", ".join(results))
 
-    return acc, avg_bleu_score
+    return results

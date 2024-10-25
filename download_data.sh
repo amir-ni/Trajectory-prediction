@@ -10,7 +10,7 @@ DATASET=${1:-"ho_geolife"}
 DATA_DIR="./data"
 OUTPUT_ZIP="${DATASET}.zip"
 BASE_URL="https://zenodo.org/records/8076553/files"
-DATASET_URL="${BASE_URL}/${OUTPUT_ZIP}?download=1"
+DATASET_URL="${BASE_URL}/ho_${OUTPUT_ZIP}?download=1"
 
 echo "Starting download and extraction script..."
 

@@ -5,7 +5,7 @@ import math
 import torch
 from tqdm import tqdm
 
-from TrajectoryBatchDataset import TrajectoryBatchDataset
+from TrajLearn.TrajectoryBatchDataset import TrajectoryBatchDataset
 
 
 class Trainer(object):

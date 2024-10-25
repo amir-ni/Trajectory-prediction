@@ -8,38 +8,31 @@
   <img src="img/architecture.png" alt="TrajLearn model architecture" height="400">
 </p>
 
-## Repository Structure
-
-This project consists of several core components required for training, evaluating, and testing the TrajLearn model:
-
-- `TrajectoryBatchDataset.py`: Handles dataset loading, processing, and batching.
-- `config.yaml`: Configuration file for model training and evaluation, containing parameters such as batch size, learning rates, and - dataset-specific configurations.
-- `environment.yml`: Specifies dependencies and environment settings required to run the project.
-- `main.py`: The main script for training and testing the TrajLearn model.
-- `model.py`: Contains the architecture and design of the TrajLearn model.
-- `test.py`: Script to test and evaluate model performance.
-- `trainer.py`: Manages the training process, including checkpoints and logging.
-- `download_data.sh`: Script to download required datasets.
-- `prepare.py`: Script to transform datasets into the required format.
-
 ## Getting Started
 
 ### Prerequisites
 
-- This implementation requires **Python version >= 3.8**.
+- This implementation requires **Python version `>= 3.8`**.
 - Ensure you have a compatible Python environment. Refer to `environment.yml` for the required packages.
 
 ### Step-by-Step Instructions
 
+0. **Clone the Repository**
+
+   First, clone the project on your computer:
+     ```bash
+     git clone https://github.com/amir-ni/Trajectory-prediction
+     ```
+
 1. **Download the Datasets**:
 
-   First, make the dataset downloader script executable:
+   Make the dataset downloader script executable:
      ```bash
      chmod +x ./download_data.sh
      ```
    Run the script to download the datasets. By default, it downloads the **Geolife** dataset. You can specify the dataset by passing an argument (`geolife`, `porto`, or `rome`). For example:
      ```bash
-     ./download_data.sh porto
+     ./download_data.sh geolife
      ```
      If no argument is provided, the **Geolife** dataset is downloaded by default.
 
@@ -47,14 +40,14 @@ This project consists of several core components required for training, evaluati
 
    After downloading, run the following command to prepare and transform the datasets:
      ```bash
-     python3 prepare.py --input_dir <input_directory> --output_dir <output_directory> --datasets <geolife|porto|rome>
+     python3 TrajLearn/preprocess.py --input_dir <input_directory> --output_dir <output_directory> --datasets <geolife|porto|rome>
      ```
    You can specify the `input_dir`, `output_dir`, and `datasets` to be processed:
      - **`--input_dir`**: Directory where the raw datasets are stored. Defaults to `./data`.
      - **`--output_dir`**: Directory where the transformed datasets will be saved. Defaults to `./data`.
      - **`--datasets`**: Select which datasets to process (`geolife`, `porto`, `rome`). Multiple datasets can be processed by specifying them in a space-separated list. For example:
      ```bash
-     python3 prepare.py --datasets geolife porto
+     python3 TrajLearn/preprocess.py --datasets geolife porto
      ```
 
 3. **Configure the Model (`config.yaml`)**:
@@ -108,7 +101,7 @@ This project consists of several core components required for training, evaluati
 
 
 
-### Additional configuration options include:
+### Additional Configuration Options:
 
 - **`test_ratio`**: Proportion of the dataset used for testing. For example, a value of `0.2` means 20% of the dataset will be used for testing.
 - **`validation_ratio`**: Proportion of the dataset used for validation. For example, a value of `0.1` means 10% of the dataset will be used for validation.
