@@ -1,3 +1,4 @@
+import os
 import glob
 import time
 import random
@@ -7,10 +8,11 @@ from typing import Dict, Any, Optional
 import numpy as np
 import torch
 from TrajLearn.TrajectoryBatchDataset import TrajectoryBatchDataset
-from TrajLearn.model import GPTConfig, GPT
+from TrajLearn.model import ModelConfig, GPT
 from TrajLearn.evaluator import evaluate_model
 from TrajLearn.trainer import Trainer
 from TrajLearn.logger import get_logger
+from torch.utils.data import IterableDataset
 
 
 def setup_environment(seed: int) -> None:
@@ -43,11 +45,11 @@ def get_dataset(config: Dict[str, Any], test_mode: bool = False) -> TrajectoryBa
     Returns:
     - TrajectoryBatchDataset: The dataset object.
     """
-    data_type = 'test' if test_mode else 'train'
+    dataset_type = 'test' if test_mode else 'train'
     dataset_path = Path(config["data_dir"]) / config["dataset"]
     dataset = TrajectoryBatchDataset(
         dataset_path,
-        type=data_type,
+        dataset_type=dataset_type,
         delimiter=config["delimiter"],
         validation_ratio=config["validation_ratio"], 
         test_ratio=config["test_ratio"]
@@ -55,7 +57,7 @@ def get_dataset(config: Dict[str, Any], test_mode: bool = False) -> TrajectoryBa
     return dataset
 
 
-def load_model(config: Dict[str, Any], dataset: TrajectoryBatchDataset, checkpoint_path: Optional[Path] = None) -> GPT:
+def load_model(config: Dict[str, Any], checkpoint_path: Optional[Path] = None, custom_init=None) -> GPT:
     """
     Initialize and optionally load a model from a checkpoint.
 
@@ -67,19 +69,21 @@ def load_model(config: Dict[str, Any], dataset: TrajectoryBatchDataset, checkpoi
     Returns:
     - GPT: The initialized GPT model, possibly with loaded weights.
     """
-    gptconf = GPTConfig(
+    model_config = ModelConfig(
         block_size=config["block_size"],
-        vocab_size=dataset.vocab_size,
+        vocab_size=config["vocab_size"],
         n_layer=config["n_layer"],
         n_head=config["n_head"],
         n_embd=config["n_embd"],
         dropout=config["dropout"],
         bias=config["bias"]
     )
-    model = GPT(gptconf)
+    model = GPT(model_config, custom_init)
 
     if checkpoint_path:
         checkpoint = torch.load(checkpoint_path, map_location=config["device"])
+        config_dict = checkpoint['config']
+        optimizer_dict = checkpoint['optimizer']
         state_dict = checkpoint['model']
         # Remove unwanted prefixes in state_dict keys
         unwanted_prefix = '_orig_mod.'
@@ -88,23 +92,48 @@ def load_model(config: Dict[str, Any], dataset: TrajectoryBatchDataset, checkpoi
                 state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
         model.load_state_dict(state_dict)
 
-    model.to(config["device"])
     return model
 
 
-def train_model(config: Dict[str, Any], dataset: TrajectoryBatchDataset, model: GPT, name: str) -> None:
+def train_model(
+    name: str,
+    dataset: TrajectoryBatchDataset,
+    config: Dict[str, Any], 
+    model: Optional[GPT] = None, 
+    custom_init: Optional[torch.Tensor] = None
+) -> None:
     """
     Set up and execute the training process.
 
     Args:
-    - config (Dict[str, Any]): Configuration dictionary.
-    - dataset (TrajectoryBatchDataset): Dataset object for training.
-    - model (GPT): The GPT model to be trained.
     - name (str): Name for the current training session (used for saving logs/checkpoints).
+    - dataset (TrajectoryBatchDataset): Dataset object for training.
+    - config (Dict[str, Any]): Configuration dictionary.
+    - model (Optional[GPT]): The GPT model to be trained (can be None before loading).
     """
     time_str = name + "-" + time.strftime("%Y%m%d-%H%M%S")
     model_checkpoint_directory = Path(config["model_checkpoint_directory"]) / time_str
     log_directory = model_checkpoint_directory / 'logs'
+
+    if model is None:
+        config["vocab_size"] = dataset.vocab_size
+        model_loaded_from_checkpoint = False
+
+        if config['train_from_checkpoint_if_exist']:
+            model_checkpoints = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))
+            if len(model_checkpoints) > 0:
+                last_checkpoint = Path(model_checkpoints[-1]) / 'checkpoint.pt'
+                model = load_model(config, checkpoint_path=last_checkpoint)
+                model_loaded_from_checkpoint = True
+
+        custom_init = None
+        if config['custom_initialization']:
+            custom_init_path = os.path.join(config["data_dir"], config["dataset"], 'embeddings.npy')
+            embeddings_np = np.load(custom_init_path)
+            custom_init = torch.from_numpy(embeddings_np).to(torch.float32)
+
+        if not model_loaded_from_checkpoint:
+            model = load_model(config, custom_init=custom_init)
 
     logger = get_logger(log_directory, phase="train")
     model.to(config["device"])
@@ -113,22 +142,55 @@ def train_model(config: Dict[str, Any], dataset: TrajectoryBatchDataset, model: 
     trainer.train()
 
 
-def test_model(config: Dict[str, Any], dataset: TrajectoryBatchDataset, model: Optional[GPT], name: str) -> list:
+def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any], model: Optional[GPT] = None) -> list:
     """
     Set up and execute the testing process.
 
     Args:
-    - config (Dict[str, Any]): Configuration dictionary.
-    - dataset (TrajectoryBatchDataset): Dataset object for testing.
-    - model (Optional[GPT]): The GPT model to be tested (can be None before loading).
     - name (str): Name of the configuration (used for loading the model checkpoint).
+    - dataset (TrajectoryBatchDataset): Dataset object for testing.
+    - config (Dict[str, Any]): Configuration dictionary.
+    - model (Optional[GPT]): The GPT model to be tested (can be None before loading).
     """
     model_checkpoint_directory = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))[-1]
     log_directory = Path(model_checkpoint_directory) / 'logs'
 
     logger = get_logger(log_directory, phase="test")
-    checkpoint_path = Path(model_checkpoint_directory) / 'checkpoint.pt'
 
-    model = load_model(config, dataset, checkpoint_path)
+    if model is None:
+        checkpoint_path = Path(model_checkpoint_directory) / 'checkpoint.pt'
+        config["vocab_size"] = dataset.vocab_size
+        model = load_model(config, checkpoint_path=checkpoint_path)
+    model.to(config["device"])
+
+    prediction_length = config["test_prediction_length"]
+    dataset.create_batches(
+        config["batch_size"], config["test_input_length"], prediction_length, False, False)
 
     return evaluate_model(model, dataset, config, logger)
+
+
+# TODO: Fix dataset input for one prediction, config should be 
+# loaded from checkpoint instead of passed, but can be overrided by what has been passed
+# This is broken, config doesnt have the vocab_size needed
+def load_and_predict(name: str, dataset: IterableDataset, config: Dict[str, Any], model: Optional[GPT] = None) -> list:
+    """
+    Set up and predict a sample.
+
+    Args:
+    - name (str): Name of the configuration (used for loading the model checkpoint).
+    - dataset (IterableDataset): Dataset object for input.
+    - config (Dict[str, Any]): Configuration dictionary.
+    - model (Optional[GPT]): The GPT model to be tested (can be None before loading).
+    """
+    model_checkpoint_directory = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))[-1]
+    log_directory = Path(model_checkpoint_directory) / 'logs'
+
+    logger = get_logger(log_directory, phase="test")
+
+    if model is None:
+        checkpoint_path = Path(model_checkpoint_directory) / 'checkpoint.pt'
+        model = load_model(config, checkpoint_path=checkpoint_path)
+    model.to(config["device"])
+
+    return model, evaluate_model(model, dataset, config, logger)

@@ -1,12 +1,3 @@
-"""
-Full definition of a GPT Language Model, all of it in this single file.
-References:
-1) the official GPT-2 TensorFlow implementation released by OpenAI:
-https://github.com/openai/gpt-2/blob/master/src/model.py
-2) huggingface/transformers PyTorch implementation:
-https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt2/modeling_gpt2.py
-"""
-
 import math
 import inspect
 from dataclasses import dataclass
@@ -16,15 +7,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 # @torch.jit.script # good to enable when not using torch.compile, disable when using (our default)
-
-
-def new_gelu(x):
-    """
-    Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT).
-    Reference: Gaussian Error Linear Units (GELU) paper: https://arxiv.org/abs/1606.08415
-    """
-    return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
-
 
 class LayerNorm(nn.Module):
     """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
@@ -54,9 +36,7 @@ class CausalSelfAttention(nn.Module):
         self.n_head = config.n_head
         self.n_embd = config.n_embd
         self.dropout = config.dropout
-        # flash attention make GPU go brrrrr but support is only in PyTorch nightly and still a bit scary
-        self.flash = hasattr(
-            torch.nn.functional, 'scaled_dot_product_attention') and self.dropout == 0.0
+        self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention') and self.dropout == 0.0
         if not self.flash:
             # print("WARNING: using slow attention. Flash Attention atm needs PyTorch nightly and dropout=0.0")
             # causal mask to ensure that attention is only applied to the left in the input sequence
@@ -78,8 +58,7 @@ class CausalSelfAttention(nn.Module):
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         if self.flash:
             # efficient attention using Flash Attention CUDA kernels
-            y = torch.nn.functional.scaled_dot_product_attention(
-                q, k, v, attn_mask=None, dropout_p=self.dropout, is_causal=True)
+            y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=self.dropout, is_causal=True)
         else:
             # manual implementation of attention
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
@@ -107,7 +86,7 @@ class MLP(nn.Module):
 
     def forward(self, x):
         x = self.c_fc(x)
-        x = new_gelu(x)
+        x = F.gelu(x, approximate='tanh')
         x = self.c_proj(x)
         x = self.dropout(x)
         return x
@@ -129,26 +108,23 @@ class Block(nn.Module):
 
 
 @dataclass
-class GPTConfig:
+class ModelConfig:
     block_size: int = 1024
-    # GPT-2 vocab_size of 50257, padded up to nearest multiple of 64 for efficiency
     vocab_size: int = 50304
     n_layer: int = 12
     n_head: int = 12
     n_embd: int = 768
     dropout: float = 0.0
-    # True: bias in Linears and LayerNorms, like GPT-2. False: a bit better and faster
     bias: bool = True
 
 
 class GPT(nn.Module):
 
-    def __init__(self, config, custom_init=False):
+    def __init__(self, config, custom_init=None):
         super().__init__()
         assert config.vocab_size is not None
         assert config.block_size is not None
         self.config = config
-        self.custom_init = custom_init
 
         self.transformer = nn.ModuleDict(dict(
             wte=nn.Embedding(config.vocab_size, config.n_embd),
@@ -167,6 +143,8 @@ class GPT(nn.Module):
 
         # init all weights
         self.apply(self._init_weights)
+        if custom_init != None:
+            self.transformer.wte.weight.data.copy_(custom_init)
         # apply special scaled init to the residual projections, per GPT-2 paper
         for pn, p in self.named_parameters():
             if pn.endswith('c_proj.weight'):
@@ -194,10 +172,7 @@ class GPT(nn.Module):
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            if (module is self.transformer.wte) and self.custom_init:
-                module.weight = nn.Parameter(self.custom_init)
-            else:
-                torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx, targets=None):
         device = idx.device
@@ -229,17 +204,6 @@ class GPT(nn.Module):
 
         return logits, loss
 
-    def crop_block_size(self, block_size):
-        # model surgery to decrease the block size if necessary
-        # e.g. we may load the GPT2 pretrained model checkpoint (block size 1024)
-        # but want to use a smaller block size for some smaller, simpler model
-        assert block_size <= self.config.block_size
-        self.config.block_size = block_size
-        self.transformer.wpe.weight = nn.Parameter(
-            self.transformer.wpe.weight[:block_size])
-        for block in self.transformer.h:
-            block.attn.bias = block.attn.bias[:, :, :block_size, :block_size]
-
     def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
         """
         This long function is unfortunately doing something very simple and is being very defensive:
@@ -265,29 +229,14 @@ class GPT(nn.Module):
                     no_decay.add(fpn)
                 elif pn.endswith('weight') and isinstance(m, whitelist_weight_modules):
                     # weights of whitelist modules will be weight decayed
-                    decay.add(fpn)
+                    if fpn != 'lm_head.weight':
+                        decay.add(fpn)
                 elif pn.endswith('weight') and isinstance(m, blacklist_weight_modules):
                     # weights of blacklist modules will NOT be weight decayed
                     no_decay.add(fpn)
 
-        # subtle: 'transformer.wte.weight' and 'lm_head.weight' are tied, so they
-        # will appear in the no_decay and decay sets respectively after the above.
-        # In addition, because named_parameters() doesn't return duplicates, it
-        # will only return the first occurence, key'd by 'transformer.wte.weight', below.
-        # so let's manually remove 'lm_head.weight' from decay set. This will include
-        # this tensor into optimization via transformer.wte.weight only, and not decayed.
-        decay.remove('lm_head.weight')
-
-        # validate that we considered every parameter
-        param_dict = {pn: p for pn, p in self.named_parameters()}
-        inter_params = decay & no_decay
-        union_params = decay | no_decay
-        assert len(
-            inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params), )
-        assert len(param_dict.keys() - union_params) == 0, "parameters %s were not separated into either decay/no_decay set!" \
-            % (str(param_dict.keys() - union_params), )
-
         # create the pytorch optimizer object
+        param_dict = {pn: p for pn, p in self.named_parameters()}
         optim_groups = [
             {"params": [param_dict[pn] for pn in sorted(
                 list(decay))], "weight_decay": weight_decay},
@@ -304,30 +253,3 @@ class GPT(nn.Module):
 
         return optimizer
 
-    @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
-        """
-        Take a conditioning sequence of indices idx (LongTensor of shape (b,t)) and complete
-        the sequence max_new_tokens times, feeding the predictions back into the model each time.
-        Most likely you'll want to make sure to be in model.eval() mode of operation for this.
-        """
-        for _ in range(max_new_tokens):
-            # if the sequence context is growing too long we must crop it at block_size
-            idx_cond = idx if idx.size(
-                1) <= self.config.block_size else idx[:, -self.config.block_size:]
-            # forward the model to get the logits for the index in the sequence
-            logits, _ = self(idx_cond)
-            # pluck the logits at the final step and scale by desired temperature
-            logits = logits[:, -1, :] / temperature
-            # optionally crop the logits to only the top k options
-            if top_k is not None:
-                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-                logits[logits < v[:, [-1]]] = -float('Inf')
-            # apply softmax to convert logits to (normalized) probabilities
-            probs = F.softmax(logits, dim=-1)
-            # sample from the distribution
-            idx_next = torch.multinomial(probs, num_samples=1)
-            # append sampled index to the running sequence and continue
-            idx = torch.cat((idx, idx_next), dim=1)
-
-        return idx

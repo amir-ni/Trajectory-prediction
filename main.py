@@ -1,5 +1,5 @@
 import argparse
-from TrajLearn.utils import setup_environment, get_dataset, load_model, test_model, train_model
+from TrajLearn.utils import setup_environment, get_dataset, test_model, train_model
 from TrajLearn.config_loader import load_config_with_defaults
 
 
@@ -20,10 +20,9 @@ def main() -> None:
         dataset = get_dataset(config, test_mode=args.test)
 
         if args.test:
-            results = test_model(config, dataset, None, name)
+            test_model(name, dataset, config)
         else:
-            model = load_model(config, dataset)
-            train_model(config, dataset, model, name)
+            train_model(name, dataset, config)
 
 
 if __name__ == '__main__':

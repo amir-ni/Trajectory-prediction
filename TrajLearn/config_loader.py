@@ -1,6 +1,5 @@
 import yaml
 
-# Define the default values for the configuration
 default_config = {
     "test_ratio": 0.2,
     "validation_ratio": 0.1,
@@ -30,10 +29,11 @@ default_config = {
     "n_embd": 512,
     "bias": False,
     "dropout": 0.1,
-    "model_checkpoint_directory": "./models/"
+    "model_checkpoint_directory": "./models/",
+    "train_from_checkpoint_if_exist": False,
+    "custom_initialization": False
 }
 
-# Define a function to load a YAML config file and apply default values
 def load_config_with_defaults(config_file: str) -> dict:
     """
     Load a YAML configuration file and apply default values for missing parameters.

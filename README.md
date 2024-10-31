@@ -30,47 +30,31 @@
      ```bash
      chmod +x ./download_data.sh
      ```
-   Run the script to download the datasets. By default, it downloads the **Geolife** dataset. You can specify the dataset by passing an argument (`geolife`, `porto`, or `rome`). For example:
+   Run the script to download the datasets. You can specify the dataset by passing an argument (`geolife`, `porto`, or `rome`). If no argument is provided, the **Geolife** dataset is downloaded by default. For example:
      ```bash
      ./download_data.sh geolife
      ```
-     If no argument is provided, the **Geolife** dataset is downloaded by default.
 
 2. **Prepare the Datasets**:
 
    After downloading, run the following command to prepare and transform the datasets:
      ```bash
-     python3 TrajLearn/preprocess.py --input_dir <input_directory> --output_dir <output_directory> --datasets <geolife|porto|rome>
+     python3 TrajLearn/preprocess.py --input_dir <input_directory> --output_dir <output_directory> --embedding_dim <embedding_dim> --datasets <geolife|porto|rome> 
      ```
    You can specify the `input_dir`, `output_dir`, and `datasets` to be processed:
      - **`--input_dir`**: Directory where the raw datasets are stored. Defaults to `./data`.
      - **`--output_dir`**: Directory where the transformed datasets will be saved. Defaults to `./data`.
+     - **`--embedding_dim`**: Dimension of the generated initial axial coordination based embedding vectors. If not provided, embeddings will not be generated and training will use random initialization.
      - **`--datasets`**: Select which datasets to process (`geolife`, `porto`, `rome`). Multiple datasets can be processed by specifying them in a space-separated list. For example:
      ```bash
      python3 TrajLearn/preprocess.py --datasets geolife porto
      ```
 
-3. **Configure the Model (`config.yaml`)**:
+3. **Set Up the Model Configuration**:
 
-   The `config.yaml` file contains all the necessary model configurations, such as batch size, learning rates, and dataset-specific parameters. Below is an example configuration for the **rome7** dataset:
+   The configuration of the model, such as batch size, learning rates, and dataset-specific settings, can be passed as to model as a `yaml` configuration file. An example configuration for the **rome7** dataset can be found in `config.yaml`. This file can also include multiple configurations and will train separate models sequentially.
 
-    ```yaml
-    rome7-example:
-      test_ratio: 0.2
-      validation_ratio: 0.1
-      delimiter: " "
-      min_input_length: 5
-      max_input_length: 20
-      test_input_length: 10
-      test_prediction_length: 5
-      batch_size: 128
-      device: cuda
-      max_epochs: 4
-      ...
-      model_checkpoint_directory: /local/Traj-Pred/models/
-    ```
-
-   You can modify this file according to your needs. Some configurations are described below and additional configurations can be found in the end of this document.
+   You can create/modify this file according to your needs. Some configurations are described below and additional configurations can be found in the end of this document.
      - **`data_dir`**: Directory where the dataset is stored. If you have not changed the default output directory in the previous steps, the address would be `./data`.
      - **`dataset`**: Name of the dataset being used, such as `rome-7`.
      - **`model_checkpoint_directory`**: Directory path where model checkpoints will be saved during training.
@@ -125,6 +109,8 @@
 - **`n_embd`**: Dimensionality of the embedding space. This represents the size of the vector representations for each token in the input sequence.
 - **`bias`**: Boolean flag to indicate whether to include bias terms in the model's layers. Set to `False` to exclude bias.
 - **`dropout`**: Dropout rate used for regularization. A value of `0` means no dropout will be applied.
+- **`custom_initialization`**: A boolean flag that specifies whether to use a axial coordination based initialization for the model's training.
+- **`train_from_checkpoint_if_exist`**: A boolean flag that indicates whether to resume training from an existing checkpoint if one is found.
 
 ## Contact
 

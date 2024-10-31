@@ -2,6 +2,7 @@ import os
 import time
 import warnings
 from tqdm import tqdm
+from typing import Any
 
 from nltk.translate.bleu_score import sentence_bleu
 import torch
@@ -19,7 +20,16 @@ def calculate_bleu(predictions: torch.Tensor, targets: torch.Tensor) -> float:
 
 
 @torch.no_grad()
-def evaluate_model(model, dataset, config, logger, beam_width=5, top_k=[1, 3, 5], continuity=True, store_predictions=True):
+def evaluate_model(
+    model: Any,
+    dataset: Any,
+    config: Any,
+    logger: Any,
+    beam_width: int = 5,
+    top_k: Any = [1, 3, 5],
+    continuity: bool = True,
+    store_predictions: bool = False
+) -> list:
     model.eval()
     device = config["device"]
     device_type = 'cuda' if 'cuda' in device else 'cpu'
@@ -33,13 +43,9 @@ def evaluate_model(model, dataset, config, logger, beam_width=5, top_k=[1, 3, 5]
     correct_predictions = {k: torch.zeros(
         prediction_length, dtype=torch.int32).to(device) for k in top_k}
 
-    dataset.create_batches(
-        config["batch_size"], config["test_input_length"], prediction_length, False, False)
-
     if store_predictions:
         pred_results_buffer = ["input sequence,true label,predicted label\n"]
-        pred_results_file = open(os.path.join(
-            logger.log_directory, 'predictions.txt'), 'w')
+        pred_results_file = open(os.path.join(logger.log_directory, 'predictions.txt'), 'w', encoding='utf-8')
 
     start_time = time.time()
 

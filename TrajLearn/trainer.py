@@ -9,7 +9,7 @@ from TrajLearn.TrajectoryBatchDataset import TrajectoryBatchDataset
 
 
 class Trainer(object):
-    def __init__(self, model, dataset, config, logger, model_checkpoint_directory, always_save_checkpoint=False):
+    def __init__(self, model, dataset, config, logger, model_checkpoint_directory, always_save_checkpoint=False, optimizer=None):
         super(Trainer, self).__init__()
         self.model = model
         self.logger = logger
@@ -42,8 +42,11 @@ class Trainer(object):
         self.ctx = torch.amp.autocast(
             device_type=self.device_type, dtype=ptdtype)
         self.scaler = torch.cuda.amp.GradScaler(enabled=(dtype == 'float16'))
-        self.optimizer = model.configure_optimizers(
-            self.weight_decay, self.learning_rate, (self.beta1, self.beta2), self.device_type)
+        if optimizer is None:
+            self.optimizer = model.configure_optimizers(
+                self.weight_decay, self.learning_rate, (self.beta1, self.beta2), self.device_type)
+        else:
+            self.optimizer = optimizer
 
         input_lengths = list(
             range(self.min_input_length, self.max_input_length+1))
@@ -51,7 +54,7 @@ class Trainer(object):
             self.config["batch_size"], input_lengths)
 
         self.validation_dataset = TrajectoryBatchDataset(os.path.join(
-            config["data_dir"], config["dataset"]), type='val', delimiter=config["delimiter"], validation_ratio=config["validation_ratio"], test_ratio=config["test_ratio"])
+            config["data_dir"], config["dataset"]), dataset_type='val', delimiter=config["delimiter"], validation_ratio=config["validation_ratio"], test_ratio=config["test_ratio"])
         self.validation_dataset.create_batches(
             self.config["batch_size"], self.min_input_length)
 

@@ -1,12 +1,59 @@
 import json
 import argparse
+from pathlib import Path
+from typing import List, Dict, Optional
 import numpy as np
 import pandas as pd
-from pathlib import Path
 import h3
-from typing import List, Dict
 
-def process_datasets(input_dir: Path, output_dir: Path, datasets_to_process: List[str]) -> None:
+def generate_embeddings(
+    vocab: list,
+    embedding_dim: int,
+    mean: float = 0,
+    std: float = 0.02,
+    projection_matrix: np.ndarray = None,
+) -> np.ndarray:
+    """
+    Generates embeddings for a given vocabulary based on axial coordinates.
+
+    Args:
+        vocab (list): A list of H3 hex addresses representing the vocabulary for which embeddings will be generated.
+        embedding_dim (int): The dimension of the generated embedding vectors.
+        mean (float, optional): The mean of the normal distribution used for embedding normalization. Default is 0.
+        std (float, optional): The standard deviation of the normal distribution used for embedding normalization. Default is 0.02.
+        projection_matrix (np.ndarray, optional): A 2D numpy array used for projecting the axial coordinates. If None, a random matrix will be generated.
+    """
+    origin_hex = vocab[0]
+    base_i, base_j = h3.experimental_h3_to_local_ij(origin_hex, origin_hex)
+
+    axial_coordinates = []
+    for h3_hex in vocab:
+        target_i, target_j = h3.experimental_h3_to_local_ij(origin_hex, h3_hex)
+        q, r = target_i - base_i, target_j - base_j
+        axial_coordinates.append((q,r))
+
+    if projection_matrix is None:
+        projection_matrix = np.random.randn(2, embedding_dim)
+
+    projected_embedding = np.dot(axial_coordinates, projection_matrix)
+
+    standardized_embedding = (projected_embedding - np.mean(projected_embedding)) / np.std(projected_embedding)
+
+    mean = 0.0
+    std = 0.02
+    normalized_embedding = standardized_embedding * std + mean
+
+    eot_embedding = np.random.normal(loc=mean, scale=std, size=(1, embedding_dim))
+
+    return np.concatenate((eot_embedding, normalized_embedding), axis=0)
+
+
+def process_datasets(
+    input_dir: Path,
+    output_dir: Path,
+    datasets_to_process: List[str],
+    embedding_dim: Optional[int]
+) -> None:
     """
     Process trajectory datasets for geolife, porto, and rome, generating vocab, mapping, neighbors,
     and transformed trajectory data.
@@ -18,19 +65,19 @@ def process_datasets(input_dir: Path, output_dir: Path, datasets_to_process: Lis
     """
     datasets = {
         "geolife": [
-            ("geolife-7", input_dir / "geolife" / "ho_geolife_res7.csv", "date"),
-            ("geolife-8", input_dir / "geolife" / "ho_geolife_res8.csv", "date"),
-            ("geolife-9", input_dir / "geolife" / "ho_geolife_res9.csv", "date")
+            ("geolife7", input_dir / "geolife" / "ho_geolife_res7.csv", "date"),
+            ("geolife8", input_dir / "geolife" / "ho_geolife_res8.csv", "date"),
+            ("geolife9", input_dir / "geolife" / "ho_geolife_res9.csv", "date")
         ],
         "porto": [
-            ("porto-7", input_dir / "porto" / "ho_porto_res7.csv", "TIMESTAMP"),
-            ("porto-8", input_dir / "porto" / "ho_porto_res8.csv", "TIMESTAMP"),
-            ("porto-9", input_dir / "porto" / "ho_porto_res9.csv", "TIMESTAMP")
+            ("porto7", input_dir / "porto" / "ho_porto_res7.csv", "TIMESTAMP"),
+            ("porto8", input_dir / "porto" / "ho_porto_res8.csv", "TIMESTAMP"),
+            ("porto9", input_dir / "porto" / "ho_porto_res9.csv", "TIMESTAMP")
         ],
         "rome": [
-            ("rome-7", input_dir / "rome" / "ho_rome_res7.csv", "date"),
-            ("rome-8", input_dir / "rome" / "ho_rome_res8.csv", "date"),
-            ("rome-9", input_dir / "rome" / "ho_rome_res9.csv", "date")
+            ("rome7", input_dir / "rome" / "ho_rome_res7.csv", "date"),
+            ("rome8", input_dir / "rome" / "ho_rome_res8.csv", "date"),
+            ("rome9", input_dir / "rome" / "ho_rome_res9.csv", "date")
         ]
     }
 
@@ -39,36 +86,36 @@ def process_datasets(input_dir: Path, output_dir: Path, datasets_to_process: Lis
             for dataset in datasets[dataset_key]:
                 dataset_name, file_path, date_column = dataset
 
-                # Create output directory for this dataset
                 dataset_output_dir = output_dir / dataset_name
                 dataset_output_dir.mkdir(parents=True, exist_ok=True)
 
-                # Check if the file exists before processing
                 if not file_path.exists():
                     print(f"Warning: {file_path} does not exist. Skipping this dataset.")
                     continue
 
-                # Load the CSV file
                 df = pd.read_csv(file_path, header=0, usecols=["higher_order_trajectory", date_column],
                                  dtype={"higher_order_trajectory": "string", date_column: "string"})
                 df = df.sort_values(by=[date_column])["higher_order_trajectory"].to_numpy()
 
-                # Split trajectory data
                 df_split = [i.split() for i in df]
 
-                # Create vocabulary list and save to file
-                vocab = ["EOT"] + list(np.unique(np.concatenate(df_split, axis=0)))
+                vocab = list(np.unique(np.concatenate(df_split, axis=0)))
+
+                if embedding_dim is not None:
+                    embeddings = generate_embeddings(vocab, embedding_dim)
+                    embeddings_file_path = dataset_output_dir / 'embeddings.npy'
+                    np.save(embeddings_file_path, embeddings)
+
+                vocab = ["EOT"] + vocab
                 vocab_file_path = dataset_output_dir / 'vocab.txt'
                 with vocab_file_path.open('w', encoding='utf-8') as vocab_file:
                     vocab_file.write("\n".join(vocab) + "\n")
 
-                # Create mapping and save to JSON
                 mapping = {k: v for v, k in enumerate(vocab)}
                 mapping_file_path = dataset_output_dir / 'mapping.json'
                 with mapping_file_path.open('w', encoding='utf-8') as mapping_file:
                     json.dump(mapping, mapping_file, ensure_ascii=False)
 
-                # Create neighbors for each hex and save to JSON
                 neighbors: Dict[int, List[int]] = dict()
                 for x in vocab[1:]:  # Skip 'EOT'
                     neighbors[mapping[str(x)]] = [mapping[i] for i in h3.hex_ring(str(x)) if i in vocab]
@@ -76,7 +123,6 @@ def process_datasets(input_dir: Path, output_dir: Path, datasets_to_process: Lis
                 with neighbors_file_path.open('w', encoding='utf-8') as neighbors_file:
                     json.dump(neighbors, neighbors_file, ensure_ascii=False)
 
-                # Map trajectories to their respective indices and save to file
                 df_mapped = [[str(mapping[j]) for j in i] for i in df_split]
                 data_file_path = dataset_output_dir / 'data.txt'
                 with data_file_path.open('w', encoding='utf-8') as data_file:
@@ -97,6 +143,10 @@ if __name__ == '__main__':
     parser.add_argument('--datasets', type=str, nargs='+', choices=['geolife', 'porto', 'rome'], required=True,
                         help='Specify which datasets to process (choose from geolife, porto, rome)')
 
+    parser.add_argument('--embedding_dim', type=int, 
+                        help="Dimension of the generated embedding vectors. If not provided, embeddings will not be generated.")
+
+
     args = parser.parse_args()
 
-    process_datasets(args.input_dir, args.output_dir, args.datasets)
+    process_datasets(args.input_dir, args.output_dir, args.datasets, args.embedding_dim)
