@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 import numpy as np
 import torch
 from TrajLearn.TrajectoryBatchDataset import TrajectoryBatchDataset
-from TrajLearn.model import ModelConfig, GPT
+from TrajLearn.model import ModelConfig, CausalLM
 from TrajLearn.evaluator import evaluate_model
 from TrajLearn.trainer import Trainer
 from TrajLearn.logger import get_logger
@@ -57,7 +57,7 @@ def get_dataset(config: Dict[str, Any], test_mode: bool = False) -> TrajectoryBa
     return dataset
 
 
-def load_model(config: Dict[str, Any], checkpoint_path: Optional[Path] = None, custom_init=None) -> GPT:
+def load_model(config: Dict[str, Any], checkpoint_path: Optional[Path] = None, custom_init=None) -> CausalLM:
     """
     Initialize and optionally load a model from a checkpoint.
 
@@ -67,7 +67,7 @@ def load_model(config: Dict[str, Any], checkpoint_path: Optional[Path] = None, c
     - checkpoint_path (Optional[Path]): Path to the model checkpoint (default is None).
 
     Returns:
-    - GPT: The initialized GPT model, possibly with loaded weights.
+    - CausalLM: The initialized causal language model, possibly with loaded weights.
     """
     model_config = ModelConfig(
         block_size=config["block_size"],
@@ -78,7 +78,7 @@ def load_model(config: Dict[str, Any], checkpoint_path: Optional[Path] = None, c
         dropout=config["dropout"],
         bias=config["bias"]
     )
-    model = GPT(model_config, custom_init)
+    model = CausalLM(model_config, custom_init)
 
     if checkpoint_path:
         checkpoint = torch.load(checkpoint_path, map_location=config["device"])
@@ -99,7 +99,7 @@ def train_model(
     name: str,
     dataset: TrajectoryBatchDataset,
     config: Dict[str, Any], 
-    model: Optional[GPT] = None, 
+    model: Optional[CausalLM] = None, 
     custom_init: Optional[torch.Tensor] = None
 ) -> None:
     """
@@ -109,7 +109,7 @@ def train_model(
     - name (str): Name for the current training session (used for saving logs/checkpoints).
     - dataset (TrajectoryBatchDataset): Dataset object for training.
     - config (Dict[str, Any]): Configuration dictionary.
-    - model (Optional[GPT]): The GPT model to be trained (can be None before loading).
+    - model (Optional[CausalLM]): The causal language model to be trained (can be None before loading).
     """
     time_str = name + "-" + time.strftime("%Y%m%d-%H%M%S")
     model_checkpoint_directory = Path(config["model_checkpoint_directory"]) / time_str
@@ -142,7 +142,7 @@ def train_model(
     trainer.train()
 
 
-def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any], model: Optional[GPT] = None) -> list:
+def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any], model: Optional[CausalLM] = None) -> list:
     """
     Set up and execute the testing process.
 
@@ -150,7 +150,7 @@ def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any
     - name (str): Name of the configuration (used for loading the model checkpoint).
     - dataset (TrajectoryBatchDataset): Dataset object for testing.
     - config (Dict[str, Any]): Configuration dictionary.
-    - model (Optional[GPT]): The GPT model to be tested (can be None before loading).
+    - model (Optional[CausalLM]): The causal language model to be tested (can be None before loading).
     """
     model_checkpoint_directory = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))[-1]
     log_directory = Path(model_checkpoint_directory) / 'logs'
@@ -173,7 +173,7 @@ def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any
 # TODO: Fix dataset input for one prediction, config should be 
 # loaded from checkpoint instead of passed, but can be overrided by what has been passed
 # This is broken, config doesnt have the vocab_size needed
-def load_and_predict(name: str, dataset: IterableDataset, config: Dict[str, Any], model: Optional[GPT] = None) -> list:
+def load_and_predict(name: str, dataset: IterableDataset, config: Dict[str, Any], model: Optional[CausalLM] = None) -> list:
     """
     Set up and predict a sample.
 
@@ -181,7 +181,7 @@ def load_and_predict(name: str, dataset: IterableDataset, config: Dict[str, Any]
     - name (str): Name of the configuration (used for loading the model checkpoint).
     - dataset (IterableDataset): Dataset object for input.
     - config (Dict[str, Any]): Configuration dictionary.
-    - model (Optional[GPT]): The GPT model to be tested (can be None before loading).
+    - model (Optional[CausalLM]): The causal language model to be tested (can be None before loading).
     """
     model_checkpoint_directory = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))[-1]
     log_directory = Path(model_checkpoint_directory) / 'logs'
