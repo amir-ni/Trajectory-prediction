@@ -12,7 +12,7 @@ from TrajLearn.model import ModelConfig, CausalLM
 from TrajLearn.evaluator import evaluate_model
 from TrajLearn.trainer import Trainer
 from TrajLearn.logger import get_logger
-from torch.utils.data import IterableDataset
+from baselines import HigherOrderMarkovChain
 
 
 def setup_environment(seed: int) -> None:
@@ -112,6 +112,9 @@ def train_model(
     - config (Dict[str, Any]): Configuration dictionary.
     - model (Optional[torch.nn.Module]): The model to be trained (can be None before loading).
     """
+    if isinstance(model, HigherOrderMarkovChain):
+        model.train(dataset)
+        return
     time_str = name + "-" + time.strftime("%Y%m%d-%H%M%S")
     Path(config["model_checkpoint_directory"]).mkdir(parents=True, exist_ok=True)
     model_checkpoint_directory = Path(config["model_checkpoint_directory"]) / time_str
@@ -158,6 +161,12 @@ def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any
     if model is None:
         checkpoint_path = Path(model_checkpoint_directory) / 'checkpoint.pt'
         model = load_model(config, checkpoint_path=checkpoint_path)
+
+    if isinstance(model, HigherOrderMarkovChain):
+        results = model.evaluate(dataset)
+        logger.info(", ".join(results))
+        return results
+
     model.to(config["device"])
 
     prediction_length = config["test_prediction_length"]
@@ -165,3 +174,4 @@ def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any
         config["batch_size"], config["test_input_length"], prediction_length, False, False)
 
     return evaluate_model(model, dataset, config, logger)
+    

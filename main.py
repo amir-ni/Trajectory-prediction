@@ -1,7 +1,7 @@
 import argparse
 from TrajLearn.utils import setup_environment, get_dataset, test_model, train_model
 from TrajLearn.config_loader import load_config_with_defaults
-from baselines import HigherOrderAttnLSTM, HigherOrderLSTM, HigherOrderGRU
+from baselines import HigherOrderAttnLSTM, HigherOrderLSTM, HigherOrderGRU, HigherOrderMarkovChain
 
 def main() -> None:
     """
@@ -27,6 +27,8 @@ def main() -> None:
                 model = HigherOrderLSTM(config)
             elif args.baseline == "lstm-attn":
                 model = HigherOrderAttnLSTM(config)
+            elif args.baseline == "mc":
+                model = HigherOrderMarkovChain()
             else:
                 raise ValueError("Baseline not found.")
         else:
