@@ -2,6 +2,7 @@ logs/**
 data/
 plots/
 old/
+visualization
 
 # OS
 .DS_Store

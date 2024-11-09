@@ -12,6 +12,7 @@ def generate_embeddings(
     mean: float = 0,
     std: float = 0.02,
     projection_matrix: np.ndarray = None,
+    random_seed: int = 42,
 ) -> np.ndarray:
     """
     Generates embeddings for a given vocabulary based on axial coordinates.
@@ -24,14 +25,15 @@ def generate_embeddings(
         projection_matrix (np.ndarray, optional): A 2D numpy array used for projecting the axial coordinates. If None, a random matrix will be generated.
     """
     origin_hex = vocab[0]
-    base_i, base_j = h3.experimental_h3_to_local_ij(origin_hex, origin_hex)
+    base_i, base_j = h3.cell_to_local_ij(origin_hex, origin_hex)
 
     axial_coordinates = []
     for h3_hex in vocab:
-        target_i, target_j = h3.experimental_h3_to_local_ij(origin_hex, h3_hex)
+        target_i, target_j = h3.cell_to_local_ij(origin_hex, h3_hex)
         q, r = target_i - base_i, target_j - base_j
         axial_coordinates.append((q,r))
 
+    np.random.seed(random_seed)
     if projection_matrix is None:
         projection_matrix = np.random.randn(2, embedding_dim)
 
@@ -117,8 +119,8 @@ def process_datasets(
                     json.dump(mapping, mapping_file, ensure_ascii=False)
 
                 neighbors: Dict[int, List[int]] = dict()
-                for x in vocab[1:]:  # Skip 'EOT'
-                    neighbors[mapping[str(x)]] = [mapping[i] for i in h3.hex_ring(str(x)) if i in vocab]
+                for x in vocab[1:]:
+                    neighbors[mapping[str(x)]] = [mapping[i] for i in h3.grid_ring(str(x)) if i in vocab]
                 neighbors_file_path = dataset_output_dir / 'neighbors.json'
                 with neighbors_file_path.open('w', encoding='utf-8') as neighbors_file:
                     json.dump(neighbors, neighbors_file, ensure_ascii=False)
@@ -143,9 +145,8 @@ if __name__ == '__main__':
     parser.add_argument('--datasets', type=str, nargs='+', choices=['geolife', 'porto', 'rome'], required=True,
                         help='Specify which datasets to process (choose from geolife, porto, rome)')
 
-    parser.add_argument('--embedding_dim', type=int, 
+    parser.add_argument('--embedding_dim', type=int,
                         help="Dimension of the generated embedding vectors. If not provided, embeddings will not be generated.")
-
 
     args = parser.parse_args()
 

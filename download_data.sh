@@ -6,7 +6,7 @@
 set -e
 
 # Variables for URLs and filenames
-DATASET=${1:-"ho_geolife"}
+DATASET=${1:-"geolife"}
 DATA_DIR="./data"
 OUTPUT_ZIP="${DATASET}.zip"
 BASE_URL="https://zenodo.org/records/8076553/files"
@@ -29,7 +29,7 @@ if [ -f "$DATA_DIR/$OUTPUT_ZIP" ]; then
     echo "Dataset zip file already exists. Skipping download."
 else
     echo "Downloading dataset from $DATASET_URL..."
-    wget -q --show-progress -O "$DATA_DIR/$OUTPUT_ZIP" "$DATASET_URL"
+    wget --show-progress -O "$DATA_DIR/$OUTPUT_ZIP" "$DATASET_URL"
     echo "Download completed."
 fi
 

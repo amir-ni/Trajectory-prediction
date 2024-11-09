@@ -31,7 +31,11 @@ default_config = {
     "dropout": 0.1,
     "model_checkpoint_directory": "./models/",
     "train_from_checkpoint_if_exist": False,
-    "custom_initialization": False
+    "custom_initialization": False,
+    "patience": 3,
+    "continuity": True,
+    "beam_width": 5,
+    "store_predictions": False,
 }
 
 def load_config_with_defaults(config_file: str) -> dict:

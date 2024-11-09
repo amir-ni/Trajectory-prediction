@@ -9,18 +9,6 @@ import torch.nn.functional as F
 
 # @torch.jit.script
 
-class LayerNorm(nn.Module):
-    """Custom LayerNorm with an optional bias parameter."""
-
-    def __init__(self, ndim: int, bias: bool = True):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(ndim))
-        self.bias = nn.Parameter(torch.zeros(ndim)) if bias else None
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return F.layer_norm(x, self.weight.shape, self.weight, self.bias, 1e-5)
-
-
 class CausalSelfAttention(nn.Module):
     """Self-attention module with causal masking."""
 
@@ -35,12 +23,10 @@ class CausalSelfAttention(nn.Module):
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_dropout = nn.Dropout(config.dropout)
-        self.flash = self.dropout == 0.0
-        if not self.flash:
-            self.register_buffer(
-                "bias",
-                torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size)
-            )
+        self.register_buffer(
+            "bias",
+            torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size)
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.size()
@@ -54,14 +40,12 @@ class CausalSelfAttention(nn.Module):
                    self.n_head).transpose(1, 2)  # (B, nh, T, hs)
 
         # (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-        if self.flash:
-            y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=self.dropout, is_causal=True)
-        else:
-            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-            att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
-            att = F.softmax(att, dim=-1)
-            att = self.attn_dropout(att)
-            y = att @ v
+
+        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
+        att = F.softmax(att, dim=-1)
+        att = self.attn_dropout(att)
+        y = att @ v
         y = y.transpose(1, 2).contiguous().view(B, T, C)
 
         y = self.resid_dropout(self.c_proj(y))
@@ -91,9 +75,9 @@ class Block(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.ln_1 = LayerNorm(config.n_embd, bias=config.bias)
+        self.ln_1 = nn.LayerNorm(config.n_embd, bias=config.bias)
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = LayerNorm(config.n_embd, bias=config.bias)
+        self.ln_2 = nn.LayerNorm(config.n_embd, bias=config.bias)
         self.mlp = MLP(config)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -126,18 +110,17 @@ class CausalLM(nn.Module):
             wpe=nn.Embedding(config.block_size, config.n_embd),
             drop=nn.Dropout(config.dropout),
             h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
-            ln_f=LayerNorm(config.n_embd, bias=config.bias),
+            ln_f=nn.LayerNorm(config.n_embd, bias=config.bias),
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
-        # https://paperswithcode.com/method/weight-tying TODO: investigate
         self.transformer.wte.weight = self.lm_head.weight
 
         self.apply(self._init_weights)
-        if custom_init is not None:
-            self.transformer.wte.weight.data.copy_(custom_init)
         for name, param in self.named_parameters():
             if name.endswith('c_proj.weight'):
                 nn.init.normal_(param, mean=0.0, std=0.02 / math.sqrt(2 * config.n_layer))
+        if custom_init is not None:
+            self.transformer.wte.weight.data.copy_(custom_init)
 
     def _init_weights(self, module: nn.Module):
         if isinstance(module, (nn.Linear, nn.Embedding)):
@@ -157,13 +140,12 @@ class CausalLM(nn.Module):
         for block in self.transformer.h:
             x = block(x)
         x = self.transformer.ln_f(x)
+        logits = self.lm_head(x[:, [-1], :])
 
         if targets is not None:
-            logits = self.lm_head(x)
             loss = F.cross_entropy(
                 logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         else:
-            logits = self.lm_head(x[:, [-1], :])
             loss = None
 
         return logits, loss
@@ -178,9 +160,9 @@ class CausalLM(nn.Module):
 
         decay = set()
         no_decay = set()
-        whitelist_weight_modules = (torch.nn.Linear, )
+        whitelist_weight_modules = (nn.Linear, )
         blacklist_weight_modules = (
-            torch.nn.LayerNorm, LayerNorm, torch.nn.Embedding)
+            nn.LayerNorm, nn.Embedding)
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn
@@ -206,4 +188,3 @@ class CausalLM(nn.Module):
             optim_groups, lr=learning_rate, betas=betas, **extra_args)
 
         return optimizer
-

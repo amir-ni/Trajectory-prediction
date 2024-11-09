@@ -1,11 +1,12 @@
 import os
 import time
 import warnings
-from tqdm import tqdm
 from typing import Any
-
-from nltk.translate.bleu_score import sentence_bleu
+from logging import Logger
+from tqdm import tqdm
 import torch
+from nltk.translate.bleu_score import sentence_bleu
+from TrajLearn.TrajectoryBatchDataset import TrajectoryBatchDataset
 
 # TODO: Reimplement without library
 def calculate_bleu(predictions: torch.Tensor, targets: torch.Tensor) -> float:
@@ -21,14 +22,11 @@ def calculate_bleu(predictions: torch.Tensor, targets: torch.Tensor) -> float:
 
 @torch.no_grad()
 def evaluate_model(
-    model: Any,
-    dataset: Any,
+    model: torch.nn.Module,
+    dataset: TrajectoryBatchDataset,
     config: Any,
-    logger: Any,
-    beam_width: int = 5,
-    top_k: Any = [1, 3, 5],
-    continuity: bool = True,
-    store_predictions: bool = False
+    logger: Logger,
+    top_k: list = [1, 3, 5],
 ) -> list:
     model.eval()
     device = config["device"]
@@ -36,14 +34,16 @@ def evaluate_model(
     prediction_length = config["test_prediction_length"]
     ctx = torch.amp.autocast(device_type=device_type, dtype=torch.float32)
 
-    if continuity:
+    beam_width = config["beam_width"]
+
+    if config["continuity"]:
         neighbors = dataset.get_neighbors()
 
     total_bleu_score = 0.0
     correct_predictions = {k: torch.zeros(
         prediction_length, dtype=torch.int32).to(device) for k in top_k}
 
-    if store_predictions:
+    if config["store_predictions"]:
         pred_results_buffer = ["input sequence,true label,predicted label\n"]
         pred_results_file = open(os.path.join(logger.log_directory, 'predictions.txt'), 'w', encoding='utf-8')
 
@@ -68,7 +68,7 @@ def evaluate_model(
                     probs = torch.softmax(logits, dim=1)
 
                     # Apply the mask
-                    if continuity:
+                    if config["continuity"]:
                         last_prediction = input_sequence[:, -1]
                         mask = torch.zeros_like(logits, dtype=torch.bool)
                         for idx, item in enumerate(last_prediction):
@@ -107,7 +107,7 @@ def evaluate_model(
 
         total_bleu_score += calculate_bleu(beams[:, 0], y)
 
-        if store_predictions:
+        if config["store_predictions"]:
             beams_np = beams[:, 0].cpu().numpy()
             xs_np, ys_np = x.cpu().numpy(), y.cpu().numpy()
             for sample_id, x_np in enumerate(xs_np):
@@ -117,10 +117,10 @@ def evaluate_model(
                     pred_results_file.writelines(pred_results_buffer)
                     pred_results_buffer = []
 
-        acc1 = ((100 * correct_predictions[1][0]) / total_samples).item()
+        acc1 = ((100 * correct_predictions[1][-1]) / total_samples).item()
         pbar.set_postfix(**{"Acc@1": acc1})
 
-    if store_predictions:
+    if config["store_predictions"]:
         pred_results_file.writelines(pred_results_buffer)
 
     test_duration = time.time() - start_time

@@ -35,7 +35,7 @@ class TrajectoryBatchDataset(IterableDataset):
         self.batches = []
         self.dataset_type = dataset_type
 
-    def create_batches(self, batch_size, observe, predict=1, shift=True, shuffle=True, drop_last=False):
+    def create_batches(self, batch_size, observe, predict=1, shuffle=True, drop_last=False):
 
         if isinstance(observe, int):
             observe = [observe]
@@ -46,12 +46,8 @@ class TrajectoryBatchDataset(IterableDataset):
             for j, observe_length in enumerate(observe):
                 for i in range(0, len(trajectory) - observe_length - predict[j] + 1):
                     self.dataX.append(trajectory[i:i+observe_length])
-                    if self.dataset_type == 'test' or not shift:
-                        self.dataY.append(
+                    self.dataY.append(
                             trajectory[i+observe_length:i+observe_length+predict[j]])
-                    else:
-                        self.dataY.append(
-                            trajectory[i+predict[j]:i+observe_length+predict[j]])
 
         # Group indices of same size together
         size_to_indices = defaultdict(list)
@@ -97,6 +93,8 @@ class TrajectoryBatchDataset(IterableDataset):
 
         #     chunk_start = chunk_size * worker_info.id
         #     batches = self.batches[chunk_start: chunk_start + chunk_size]
+        # for i in range(len(self.dataX)):
+        #     yield torch.LongTensor(self.dataX[i]), torch.LongTensor(self.dataY[i])
 
         for batch_indices in self.batches:
             yield torch.LongTensor(np.stack([self.dataX[i] for i in batch_indices])), torch.LongTensor(np.stack([self.dataY[i] for i in batch_indices]))
