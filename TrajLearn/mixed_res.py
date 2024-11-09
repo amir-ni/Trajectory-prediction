@@ -175,7 +175,7 @@ def preprocess_resolution(
 def visualize(hex_counts: dict, output_path: str, bins:list = None, **kwargs):
     """
     Generate and display a heatmap of hexagon counts on a map, and save it as an image.
-    
+
     Arguments:
     - hex_seq: list of str, a list of hexagon sequences.
     - zoom_level: int, the zoom level for the map.
@@ -273,7 +273,7 @@ def complex_split_condition(threshold=100, std_ratio=2):
     def split_condition(current_res, hex_count, neighbors_stat):
         """
         Determine if a hexagon should be split based on normalized variance and threshold ratio.
-        
+
         Arguments:
         - current_res: int, the current resolution of the hexagon.
         - hex_count: int, the number of occurrences in the current hexagon.
@@ -362,7 +362,7 @@ def mixed_resolution(
 
     This function reads preprocessed data including hexagon counts, unique hexagon sets,
     and neighbor relationships, and iteratively refines the hexagon set by splitting
-    hexagons that meet the given `split_condition_fn`. The process halts when the 
+    hexagons that meet the given `split_condition_fn`. The process halts when the
     `stopping_condition_fn` is satisfied or the maximum number of iterations is reached.
 
     Arguments:

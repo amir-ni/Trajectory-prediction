@@ -38,7 +38,7 @@ default_config = {
     "store_predictions": False,
 }
 
-def load_config_with_defaults(config_file: str) -> dict:
+def load_config(config_file: str) -> dict:
     """
     Load a YAML configuration file and apply default values for missing parameters.
 

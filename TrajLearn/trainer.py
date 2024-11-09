@@ -13,8 +13,8 @@ class Trainer:
     """
     Trainer class to handle the training and validation of a given model on trajectory datasets.
     """
-    def __init__(self, model: torch.nn.Module, dataset: TrajectoryBatchDataset, config: dict, 
-                 logger, model_checkpoint_directory: str, always_save_checkpoint: bool = False, 
+    def __init__(self, model: torch.nn.Module, dataset: TrajectoryBatchDataset, config: dict,
+                 logger, model_checkpoint_directory: str, always_save_checkpoint: bool = False,
                  optimizer: Optional[Optimizer] = None):
         """
         Initialize the Trainer class with model, dataset, configurations, and other options.
@@ -130,7 +130,7 @@ class Trainer:
                 with self.ctx:
                     _, loss = self.model(X.to(self.device), Y.to(self.device))
                 total_loss += loss.item()
-                
+
                 total_samples += X.shape[0]
 
                 self.scaler.scale(loss).backward()

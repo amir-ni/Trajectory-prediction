@@ -39,7 +39,7 @@
 
    After downloading, run the following command to prepare and transform the datasets:
      ```bash
-     python3 TrajLearn/preprocess.py --input_dir <input_directory> --output_dir <output_directory> --embedding_dim <embedding_dim> --datasets <geolife|porto|rome> 
+     python3 TrajLearn/preprocess.py --input_dir <input_directory> --output_dir <output_directory> --embedding_dim <embedding_dim> --datasets <geolife|porto|rome>
      ```
    You can specify the `input_dir`, `output_dir`, and `datasets` to be processed:
      - **`--input_dir`**: Directory where the raw datasets are stored. Defaults to `./data`.

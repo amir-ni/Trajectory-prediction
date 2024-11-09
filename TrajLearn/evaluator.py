@@ -8,7 +8,6 @@ import torch
 from nltk.translate.bleu_score import sentence_bleu
 from TrajLearn.TrajectoryBatchDataset import TrajectoryBatchDataset
 
-# TODO: Reimplement without library
 def calculate_bleu(predictions: torch.Tensor, targets: torch.Tensor) -> float:
     bleu_score = 0.0
     with warnings.catch_warnings():
@@ -26,13 +25,16 @@ def evaluate_model(
     dataset: TrajectoryBatchDataset,
     config: Any,
     logger: Logger,
-    top_k: list = [1, 3, 5],
+    top_k: list = None,
 ) -> list:
     model.eval()
     device = config["device"]
     device_type = 'cuda' if 'cuda' in device else 'cpu'
     prediction_length = config["test_prediction_length"]
     ctx = torch.amp.autocast(device_type=device_type, dtype=torch.float32)
+
+    if top_k is None:
+        top_k = [1, 3, 5]
 
     beam_width = config["beam_width"]
 

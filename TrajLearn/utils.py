@@ -1,6 +1,7 @@
 import os
 import glob
 import time
+import pickle
 import random
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -51,16 +52,16 @@ def get_dataset(config: Dict[str, Any], test_mode: bool = False) -> TrajectoryBa
         dataset_path,
         dataset_type=dataset_type,
         delimiter=config["delimiter"],
-        validation_ratio=config["validation_ratio"], 
+        validation_ratio=config["validation_ratio"],
         test_ratio=config["test_ratio"]
     )
     config["vocab_size"] = dataset.vocab_size
     return dataset
 
 
-def load_model(config: Dict[str, Any], checkpoint_path: Optional[Path] = None, custom_init=None) -> torch.nn.Module:
+def load_model(model: torch.nn.Module | HigherOrderMarkovChain, checkpoint_path: Optional[Path], device: str) -> torch.nn.Module:
     """
-    Initialize and optionally load a model from a checkpoint.
+    Load a model from a checkpoint.
 
     Args:
     - config (Dict[str, Any]): Configuration dictionary.
@@ -70,6 +71,24 @@ def load_model(config: Dict[str, Any], checkpoint_path: Optional[Path] = None, c
     Returns:
     - Module: The initialized model, possibly with loaded weights.
     """
+    if isinstance(model, HigherOrderMarkovChain):
+        with open(checkpoint_path, 'rb') as f:
+            checkpoint = pickle.load(f)
+        optimizer = None
+    else:
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        optimizer = checkpoint['optimizer']
+    config = checkpoint['config']
+    state_dict = checkpoint['model']
+    unwanted_prefix = '_orig_mod.'
+    for k, _ in list(state_dict.items()):
+        if k.startswith(unwanted_prefix):
+            state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+    model.load_state_dict(state_dict)
+
+    return model, config, optimizer
+
+def initialize_model(config, custom_init=None):
     model_config = ModelConfig(
         block_size=config["block_size"],
         vocab_size=config["vocab_size"],
@@ -79,29 +98,14 @@ def load_model(config: Dict[str, Any], checkpoint_path: Optional[Path] = None, c
         dropout=config["dropout"],
         bias=config["bias"]
     )
-    model = CausalLM(model_config, custom_init)
-
-    if checkpoint_path:
-        checkpoint = torch.load(checkpoint_path, map_location=config["device"])
-        config_dict = checkpoint['config']
-        optimizer_dict = checkpoint['optimizer']
-        state_dict = checkpoint['model']
-        # Remove unwanted prefixes in state_dict keys
-        unwanted_prefix = '_orig_mod.'
-        for k, _ in list(state_dict.items()):
-            if k.startswith(unwanted_prefix):
-                state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
-        model.load_state_dict(state_dict)
-
-    return model
+    return CausalLM(model_config, custom_init)
 
 
 def train_model(
     name: str,
     dataset: TrajectoryBatchDataset,
     config: Dict[str, Any],
-    model: Optional[torch.nn.Module] = None,
-    custom_init: Optional[torch.Tensor] = None
+    model: Optional[torch.nn.Module | HigherOrderMarkovChain] = None
 ) -> None:
     """
     Set up and execute the training process.
@@ -112,35 +116,34 @@ def train_model(
     - config (Dict[str, Any]): Configuration dictionary.
     - model (Optional[torch.nn.Module]): The model to be trained (can be None before loading).
     """
-    if isinstance(model, HigherOrderMarkovChain):
-        model.train(dataset)
-        return
     time_str = name + "-" + time.strftime("%Y%m%d-%H%M%S")
-    Path(config["model_checkpoint_directory"]).mkdir(parents=True, exist_ok=True)
     model_checkpoint_directory = Path(config["model_checkpoint_directory"]) / time_str
+    Path(model_checkpoint_directory).mkdir(parents=True, exist_ok=True)
     log_directory = model_checkpoint_directory / 'logs'
 
     if model is None:
-        if config['train_from_checkpoint_if_exist']:
-            model_checkpoints = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))
-            if len(model_checkpoints) > 0:
-                last_checkpoint = Path(model_checkpoints[-1]) / 'checkpoint.pt'
-                model = load_model(config, checkpoint_path=last_checkpoint)
-
-        if config['custom_initialization'] and model is None:
+        if config['custom_initialization']:
             custom_init_path = os.path.join(config["data_dir"], config["dataset"], 'embeddings.npy')
             embeddings_np = np.load(custom_init_path)
             custom_init = torch.from_numpy(embeddings_np).to(torch.float32)
-            model = load_model(config, custom_init=custom_init)
+            model = initialize_model(config, custom_init=custom_init)
+        else:
+            model = initialize_model(config=config)
 
-        if model is None:
-            model = load_model(config)
+    if config['train_from_checkpoint_if_exist']:
+        model_checkpoints = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))
+        if len(model_checkpoints) > 0:
+            last_checkpoint = Path(model_checkpoints[-1]) / 'checkpoint.pt'
+            model = load_model(model, last_checkpoint, config['device'])
 
-    logger = get_logger(log_directory, phase="train")
-    model.to(config["device"])
+    logger = get_logger(log_directory, name, phase="train")
 
-    trainer = Trainer(model, dataset, config, logger, str(model_checkpoint_directory))
-    trainer.train()
+    if isinstance(model, HigherOrderMarkovChain):
+        model.train(dataset, logger, str(model_checkpoint_directory))
+    else:
+        model.to(config["device"])
+        trainer = Trainer(model, dataset, config, logger, str(model_checkpoint_directory))
+        trainer.train()
 
 
 def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any], model: Optional[torch.nn.Module] = None) -> list:
@@ -156,22 +159,22 @@ def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any
     model_checkpoint_directory = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))[-1]
     log_directory = Path(model_checkpoint_directory) / 'logs'
 
-    logger = get_logger(log_directory, phase="test")
+    logger = get_logger(log_directory, name, phase="test")
 
     if model is None:
-        checkpoint_path = Path(model_checkpoint_directory) / 'checkpoint.pt'
-        model = load_model(config, checkpoint_path=checkpoint_path)
+        model = initialize_model(config)
 
-    if isinstance(model, HigherOrderMarkovChain):
-        results = model.evaluate(dataset)
-        logger.info(", ".join(results))
-        return results
-
-    model.to(config["device"])
+    checkpoint_path = Path(model_checkpoint_directory) / 'checkpoint.pt'
+    model = load_model(model, checkpoint_path, config['device'])
 
     prediction_length = config["test_prediction_length"]
     dataset.create_batches(
         config["batch_size"], config["test_input_length"], prediction_length, False, False)
 
-    return evaluate_model(model, dataset, config, logger)
-    
+    if isinstance(model, HigherOrderMarkovChain):
+        results = model.evaluate(dataset)
+        logger.info(", ".join(results))
+        return results
+    else:
+        model.to(config["device"])
+        return evaluate_model(model, dataset, config, logger)

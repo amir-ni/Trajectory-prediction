@@ -1,4 +1,5 @@
 import os
+import time
 import pickle
 from collections import defaultdict
 from nltk.translate.bleu_score import sentence_bleu
@@ -16,20 +17,22 @@ class HigherOrderMarkovChain:
         self.index_state_mapping = {}
         self.states = []
         self.num_states = 0
-        self.checkpoint_path = os.path.join(config["model_checkpoint_directory"], 'checkpoint.pt')
-        
+        self.config = config
+        self.logger = None
 
-    def train(self, dataset):
+
+    def train(self, dataset, logger, model_checkpoint_directory: str):
         """
         Train the Higher-Order Markov Chain using the provided sequences.
 
         :param sequences: List of sequences (list of lists), where each sequence is a list of states.
         """
-        print("Building transition matrix...")
+        logger.info("Building transition matrix...")
+        self.logger = logger
         sequences = dataset.data
         self._build_state_mappings(sequences)
         self._build_transition_matrix(sequences)
-        self.save_model()
+        self.save_checkpoint(model_checkpoint_directory)
 
     def _build_state_mappings(self, sequences):
         # Build state to index mappings
@@ -40,12 +43,12 @@ class HigherOrderMarkovChain:
         self.num_states = len(self.states)
         self.state_index_mapping = {state: idx for idx, state in enumerate(self.states)}
         self.index_state_mapping = {idx: state for state, idx in self.state_index_mapping.items()}
-        
+
 
     def _build_transition_matrix(self, sequences):
         # Initialize transition counts with ones for smoothing
         self.transition_counts = defaultdict(lambda: defaultdict(lambda: 1))
-        
+
         for sequence in tqdm(sequences, desc="Processing training sequences"):
             for i in range(len(sequence) - self.order):
                 current_state = tuple(sequence[i:i + self.order])
@@ -90,7 +93,7 @@ class HigherOrderMarkovChain:
             current_sequence.append(next_states[0])  # Append the most probable next state
         return predictions
 
-    def save_model(self):
+    def save_checkpoint(self, model_checkpoint_directory):
         """
         Save the trained model to a file.
 
@@ -104,26 +107,30 @@ class HigherOrderMarkovChain:
             'states': self.states,
             'num_states': self.num_states
         }
-        with open(self.checkpoint_path, 'wb') as f:
-            pickle.dump(model_data, f)
+        checkpoint = {
+            'model': model_data,
+            'config': self.config,
+        }
+        checkpoint_path = os.path.join(model_checkpoint_directory, 'checkpoint.pt')
+        try:
+            with open(checkpoint_path, 'wb') as f:
+                pickle.dump(checkpoint, f)
+        except Exception as e:
+            self.logger.error(f"Failed to save checkpoint: {e}")
 
-    @classmethod
-    def load_model(cls, filepath):
+    def load_state_dict(self, model_data):
         """
         Load a trained model from a file.
 
         :param filepath: Path to the file where the model is saved.
         :return: An instance of HigherOrderMarkovChain with loaded parameters.
         """
-        with open(filepath, 'rb') as f:
-            model_data = pickle.load(f)
-        model = cls(order=model_data['order'])
-        model.transition_probs = model_data['transition_probs']
-        model.state_index_mapping = model_data['state_index_mapping']
-        model.index_state_mapping = model_data['index_state_mapping']
-        model.states = model_data['states']
-        model.num_states = model_data['num_states']
-        return model
+        self.transition_probs = model_data['transition_probs']
+        self.state_index_mapping = model_data['state_index_mapping']
+        self.index_state_mapping = model_data['index_state_mapping']
+        self.states = model_data['states']
+        self.num_states = model_data['num_states']
+        self.order = model_data['order']
 
     def evaluate(self, test_dataset):
         """
@@ -139,6 +146,7 @@ class HigherOrderMarkovChain:
         hit_step5_at5 = 0
         bleu_scores = 0
 
+        start_time = time.time()
         for test_sequence in tqdm(test_dataset.data, desc="Processing test sequences"):
             if len(test_sequence) < self.order + 5:
                 continue
@@ -168,9 +176,13 @@ class HigherOrderMarkovChain:
 
                 total_predictions += 1
 
+        test_duration = time.time() - start_time
+
         return [
             f"Accuracy@1: {hit_step5_at1 / total_predictions if total_predictions else 0}",
             f"Accuracy@3: {hit_step5_at3 / total_predictions if total_predictions else 0}",
             f"Accuracy@5: {hit_step5_at5 / total_predictions if total_predictions else 0}",
-            f"BLEU score: {bleu_scores / total_predictions if total_predictions else 0}"
+            f"BLEU score: {bleu_scores / total_predictions if total_predictions else 0}",
+            f"Test duration: {test_duration:.3f}(s)",
+            f"Samples: {total_predictions}"
         ]

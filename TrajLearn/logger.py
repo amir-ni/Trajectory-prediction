@@ -3,6 +3,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 def get_logger(log_directory,
+               name,
                phase="train",
                console_level=logging.DEBUG,
                file_level=logging.INFO,
@@ -26,7 +27,7 @@ def get_logger(log_directory,
     Returns:
     - logger (logging.Logger): Configured logger object.
     """
-    logger = logging.getLogger(phase)
+    logger = logging.getLogger(f"{name}-{phase}")
 
     if not logger.hasHandlers():
         logger.setLevel(logging.DEBUG)
