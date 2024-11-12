@@ -134,7 +134,7 @@ def train_model(
         model_checkpoints = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))
         if len(model_checkpoints) > 0:
             last_checkpoint = Path(model_checkpoints[-1]) / 'checkpoint.pt'
-            model = load_model(model, last_checkpoint, config['device'])
+            model, config, optimizer = load_model(model, last_checkpoint, config['device'])
 
     logger = get_logger(log_directory, name, phase="train")
 
@@ -165,7 +165,7 @@ def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any
         model = initialize_model(config)
 
     checkpoint_path = Path(model_checkpoint_directory) / 'checkpoint.pt'
-    model = load_model(model, checkpoint_path, config['device'])
+    model, _, __ = load_model(model, checkpoint_path, config['device'])
 
     prediction_length = config["test_prediction_length"]
     dataset.create_batches(
