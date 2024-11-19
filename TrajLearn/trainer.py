@@ -177,6 +177,8 @@ class Trainer:
             return self.learning_rate * it / self.warmup_iters
         if it == self.warmup_iters:
             self.logger.info("Warm-up iterations ended, starting cosine decay")
+        if it == self.lr_decay_iters:
+            self.logger.info("Decay iterations ended, using minimum learning rate")
         if it >= self.lr_decay_iters:
             return self.min_lr
 

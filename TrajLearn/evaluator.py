@@ -119,7 +119,7 @@ def evaluate_model(
                     pred_results_file.writelines(pred_results_buffer)
                     pred_results_buffer = []
 
-        acc1 = ((100 * correct_predictions[1][-1]) / total_samples).item()
+        acc1 = ((100 * correct_predictions[1][prediction_length-1]) / total_samples).item()
         pbar.set_postfix(**{"Acc@1": acc1})
 
     if config["store_predictions"]:
@@ -130,7 +130,7 @@ def evaluate_model(
     avg_bleu_score = total_bleu_score / total_samples
     acc = {k: (100 * v) / (total_samples)
            for k, v in correct_predictions.items()}
-    results = []
+    results = [f"Dataset: {config['dataset']}"]
     for k, v in acc.items():
         results.append(f"Accuracy@{k}: {v[-1]:.4f}")
     results.append(f"BLEU score: {avg_bleu_score:.4f}")

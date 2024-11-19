@@ -5,7 +5,7 @@
 *TrajLearn* is a transformer-based model designed to predict future trajectories using higher-order mobility flow representations (hexagonal grids). This model integrates a beam search variant to enhance spatial continuity, providing superior accuracy compared to existing methods. It is a powerful solution for trajectory prediction tasks in autonomous vehicles, robotics, and human motion analysis.
 
 <p align="center">
-  <img src="img/architecture.png" alt="TrajLearn model architecture" height="400">
+  <img src="img/architecture.jpg" alt="TrajLearn model architecture" height="400">
 </p>
 
 ## Getting Started
@@ -30,9 +30,9 @@
      ```bash
      chmod +x ./download_data.sh
      ```
-   Run the script to download the datasets. You can specify the dataset by passing an argument (`geolife`, `porto`, or `rome`). If no argument is provided, the **Geolife** dataset is downloaded by default. For example:
+   Run the script to download the datasets. You can specify the datasets by passing them as arguments (`geolife`, `porto`, or `rome`). For example:
      ```bash
-     ./download_data.sh geolife
+     ./download_data.sh geolife porto rome
      ```
 
 2. **Prepare the Datasets**:
@@ -47,12 +47,12 @@
      - **`--embedding_dim`**: Dimension of the generated initial axial coordination based embedding vectors. If not provided, embeddings will not be generated and training will use random initialization.
      - **`--datasets`**: Select which datasets to process (`geolife`, `porto`, `rome`). Multiple datasets can be processed by specifying them in a space-separated list. For example:
      ```bash
-     python3 TrajLearn/preprocess.py --datasets geolife porto
+     python3 TrajLearn/preprocess.py --datasets rome geolife porto --embedding_dim 512
      ```
 
 3. **Set Up the Model Configuration**:
 
-   The configuration of the model, such as batch size, learning rates, and dataset-specific settings, can be passed as to model as a `yaml` configuration file. An example configuration for the **rome7** dataset can be found in `config.yaml`. This file can also include multiple configurations and will train separate models sequentially.
+   The configuration of the model, such as batch size, learning rates, and dataset-specific settings, can be passed as to model as a `yaml` configuration file. This file can also include multiple configurations and will train separate models sequentially. An example configuration used for generating results provided in the paper can be found in `config.yaml`.
 
    You can create/modify this file according to your needs. Some configurations are described below and additional configurations can be found in the end of this document.
      - **`data_dir`**: Directory where the dataset is stored. If you have not changed the default output directory in the previous steps, the address would be `./data`.
@@ -111,10 +111,17 @@
 - **`dropout`**: Dropout rate used for regularization. A value of `0` means no dropout will be applied.
 - **`custom_initialization`**: A boolean flag that specifies whether to use a axial coordination based initialization for the model's training.
 - **`train_from_checkpoint_if_exist`**: A boolean flag that indicates whether to resume training from an existing checkpoint if one is found.
+- **`patience`**: Integer value indicating the number of epochs to wait for before early stopping.
+- **`continuity`**: Boolean flag to enforce spatial continuity constraints on predictions.
+- **`beam_width`**: Integer specifying the beam width for beam search.
+- **`store_predictions`**: Boolean flag to enable or disable storing the predicted sequences.
+
 
 ## Contact
 
-This project was developed by [Amirhossein Nadiri](https://github.com/amir-ni). For any inquiries or collaboration, feel free to reach out at [anadiri@yorku.ca](mailto:anadiri@yorku.ca).
+This project was developed by [Amirhossein Nadiri](https://github.com/amir-ni).
+
+For any inquiries or collaboration, feel free to reach out at [anadiri@yorku.ca](mailto:anadiri@yorku.ca).
 
 ## License
 
