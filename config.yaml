@@ -1,4 +1,4 @@
-geolife8-lstm:
+geolife7-lstm-attn:
   test_ratio: 0.2
   validation_ratio: 0.1
   delimiter: " "
@@ -21,7 +21,7 @@ geolife8-lstm:
   min_lr: 2.e-8
   seed: 42
   data_dir: ./data
-  dataset: geolife8
+  dataset: geolife7
   n_layer: 2
   n_head: 4
   n_embd: 512

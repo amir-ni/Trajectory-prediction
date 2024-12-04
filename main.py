@@ -4,7 +4,7 @@ from TrajLearn.utils import setup_environment, get_dataset, test_model, train_mo
 from TrajLearn.config_loader import load_config
 from baselines import HigherOrderAttnLSTM, HigherOrderLSTM, HigherOrderGRU, HigherOrderMarkovChain
 
-os.environ["CUDA_VISIBLE_DEVICES"]="5"
+os.environ["CUDA_VISIBLE_DEVICES"]="7"
 
 def main() -> None:
     """

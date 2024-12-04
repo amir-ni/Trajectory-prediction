@@ -17,7 +17,7 @@ class HigherOrderAttnLSTM(nn.Module):
         lstm_outputs, _ = self.lstm(x)
         attention_scores = self.attention(lstm_outputs)
         attention_weights = torch.softmax(attention_scores.squeeze(dim=-1), dim=1)
-        attended_outputs = torch.bmm(attention_weights.unsqueeze(dim=1), lstm_outputs).squeeze(dim=1)
+        attended_outputs = torch.bmm(attention_weights.unsqueeze(dim=1), lstm_outputs)
         logits = self.lm_head(attended_outputs)
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1) if targets is not None else None
         return logits, loss
