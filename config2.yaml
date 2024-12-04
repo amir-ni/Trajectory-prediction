@@ -1,4 +1,4 @@
-geolife8-lstm:
+geolife7-c2:
   test_ratio: 0.2
   validation_ratio: 0.1
   delimiter: " "
@@ -17,17 +17,17 @@ geolife8-lstm:
   grad_clip: 1.0
   decay_lr: True
   warmup_iters: 100
-  lr_decay_iters: 12000
-  min_lr: 2.e-8
+  lr_decay_iters: 20000
+  min_lr: 1.e-8
   seed: 42
-  data_dir: ./data
-  dataset: geolife8
-  n_layer: 2
+  data_dir: /home/anadiri/Trajectory-prediction/data
+  dataset: geolife7
+  n_layer: 12
   n_head: 4
   n_embd: 512
   bias: False
   dropout: 0
   model_checkpoint_directory: /local/data1/users/anadiri/models/
   train_from_checkpoint_if_exist: False
-  custom_initialization: False
+  custom_initialization: True
   patience: 3

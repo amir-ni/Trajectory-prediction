@@ -156,7 +156,7 @@ def test_model(name: str, dataset: TrajectoryBatchDataset, config: Dict[str, Any
     - config (Dict[str, Any]): Configuration dictionary.
     - model (Optional[torch.nn.Module]): The model to be tested (can be None before loading).
     """
-    model_checkpoint_directory = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-*"))))[-1]
+    model_checkpoint_directory = sorted(glob.glob(str(Path(config["model_checkpoint_directory"]) / (name + "-2024*"))))[-1]
     log_directory = Path(model_checkpoint_directory) / 'logs'
 
     logger = get_logger(log_directory, name, phase="test")

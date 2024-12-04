@@ -12,7 +12,7 @@ def generate_embeddings(
     mean: float = 0,
     std: float = 0.02,
     projection_matrix: np.ndarray = None,
-    random_seed: int = 42,
+    random_seed: int = 10,
 ) -> np.ndarray:
     """
     Generates embeddings for a given vocabulary based on axial coordinates.
@@ -39,15 +39,20 @@ def generate_embeddings(
 
     projected_embedding = np.dot(axial_coordinates, projection_matrix)
 
-    standardized_embedding = (projected_embedding - np.mean(projected_embedding)) / np.std(projected_embedding)
+    # standardized_embedding = (projected_embedding - np.mean(projected_embedding)) / np.std(projected_embedding)
 
-    mean = 0.0
-    std = 0.02
-    normalized_embedding = standardized_embedding * std + mean
+    # normalized_embedding = standardized_embedding * std + mean
 
     eot_embedding = np.random.normal(loc=mean, scale=std, size=(1, embedding_dim))
 
-    return np.concatenate((eot_embedding, normalized_embedding), axis=0)
+    normal_samples = np.random.normal(loc=mean, scale=std, size=(len(vocab) * embedding_dim))
+    flat_projected_embedding = projected_embedding.flatten()
+    sorted_indices = np.argsort(flat_projected_embedding)
+    sorted_projected_embedding = np.empty_like(flat_projected_embedding)
+    sorted_projected_embedding[sorted_indices] = np.sort(normal_samples)
+    sorted_projected_embedding = sorted_projected_embedding.reshape(projected_embedding.shape)
+
+    return np.concatenate((eot_embedding, sorted_projected_embedding), axis=0)
 
 
 def process_datasets(
