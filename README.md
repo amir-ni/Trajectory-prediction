@@ -132,6 +132,13 @@ This project is open-source software licensed under the [LICENSE](LICENSE).
 If you use this project or TrajLearn in your research, please consider citing it as follows:
 
 ```tex
-@inproceedings{
+@article{TrajLearn,
+author = {Nadiri, Amirhossein and Li, Jing and Faraji, Ali and Abuoda, Ghadeer and Papagelis, Manos},
+title = {TrajLearn: Trajectory Prediction Learning using Deep Generative Models},
+year = {2025},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+journal = {ACM Trans. Spatial Algorithms Syst.},
+numpages = {33},
 }
 ```
