@@ -139,6 +139,7 @@ year = {2025},
 publisher = {Association for Computing Machinery},
 address = {New York, NY, USA},
 journal = {ACM Trans. Spatial Algorithms Syst.},
+volume = {In Press},
 numpages = {33},
 }
 ```
